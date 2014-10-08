@@ -1,0 +1,152 @@
+---
+# Get YAML keywords from myYAML_ref.Rmd
+title: "Motor Trend: mpg regression"
+author: "bdanalytics"
+#output: html_document
+---
+#### Date: `r format(Sys.time(), "(%a) %b %d, %Y")`
+
+Data: Motor Trend Car Road Tests "mtcars {datasets}"  
+Source: Henderson and Velleman (1981), Building multiple regression models interactively. Biometrics, 37, 391–411.  
+Time period: 1973–74 models
+
+### Synopsis:
+
+#### Is an automatic or manual transmission better for MPG:
+Manual transmission is better for miles per gallon versus automatic transmission.  
+Average mpg for automatic transmission is `17` vs. `23` for manual transmission.  
+
+#### Quantify the MPG difference between automatic and manual transmissions:
+
+#### Potential next steps include:
+
+```{r set_global_options}
+rm(list=ls())
+set.seed(12345)
+source("~/Dropbox/datascience/R/mydsutils.R")
+source("~/Dropbox/datascience/R/myplot.R")
+# Gather all package requirements here
+#suppressPackageStartupMessages(require())
+```
+
+```{r set_global_options_wd, echo=FALSE}
+setwd("~/Documents/Work/Courses/Coursera/jhu-datascience/G-Regression-Models/Project/MotorTrend")
+```
+
+### Step 01: import data
+```{r import_data, cache=TRUE}
+data(mtcars)
+cars_df <- mtcars
+myprint_df(cars_df)
+```
+
+#### Step 02.1: inspect data
+Automtatic Transmission feature (am) is numeric. Let's make it a factor for analytics convenience.
+```{r inspect_steps_1, cache=TRUE}
+cars_df$am_fctr <- factor(cars_df$am, labels=c("automatic", "manual"))
+print(str(cars_df))
+
+#[, 1]  mpg	    Miles/(US) gallon
+#[, 2]	cyl	    Number of cylinders
+#[, 3]	disp	Displacement (cu.in.)
+#[, 4]	hp	    Gross horsepower
+#[, 5]	drat	Rear axle ratio
+#[, 6]	wt	    Weight (lb/1000)
+#[, 7]	qsec	1/4 mile time
+#[, 8]	vs	    V/S
+#[, 9]	am	    numeric:    Transmission (0 = automatic, 1 = manual)
+#[,12]  am_fctr	factor:     Transmission (automatic, manual)
+#[,10]	gear	Number of forward gears
+#[,11]	carb	Number of carburetors
+
+print(summary(cars_df))
+#pairs(subset(entity_df, select=-c(col_symbol)))
+
+myplot_violin <- function(df, ycol_names, xcol_name=NULL, facet_spec=NULL) {
+    if ((length(ycol_names) > 1) & (!missing(xcol_name)))
+        stop("Multiple feats not implemented with x variable.", 
+             "\n  Consider using facet parameter instead.")
+    
+    if (!missing(xcol_name) & !is.factor(df[, xcol_name])) {
+        xcol_name_par <- xcol_name
+        xcol_name <- paste(xcol_name_par, "fctr", sep="_")
+        warning("xcol_name:", xcol_name_par, " is not a factor; creating ", xcol_name)
+        df[, xcol_name] <- as.factor(df[, xcol_name_par])
+    }
+    
+    if (length(ycol_names) == 1) {
+        if (missing(xcol_name)) {
+            medians_df <- summaryBy(as.formula(paste0(ycol_names, " ~ factor(0)")), df, 
+                                    FUN=c(median), na.rm=TRUE)
+            p <- ggplot(df, aes_string(x=factor(0), y=ycol_names))
+            p <- p + xlab(" ")            
+        } else {
+            medians_df <- summaryBy(as.formula(paste0(ycol_names, " ~ ", xcol_name)), df, 
+                                    FUN=c(median), na.rm=TRUE)
+            p <- ggplot(df, aes_string(x=xcol_name, y=ycol_names))            
+        }
+    } else {
+        require(reshape)
+        mltd_df <- melt(df,, measure.vars=ycol_names)
+        require(doBy)        
+        medians_df <- summaryBy(value ~ variable , mltd_df, FUN=c(median), na.rm=TRUE)
+        p <- ggplot(mltd_df, aes(x=variable, y=value))
+        p <- p + xlab(" ")
+    }
+    
+    if (!is.null(facet_spec)) {
+        stop("facets not supported yet")
+        require(doBy)
+        sum_df <- summaryBy(steps ~ . , df, FUN=c(median))
+    } else {
+    }
+    
+    p <- p + geom_violin(fill="grey80", color="blue") + 
+             stat_summary(fun.y=mean, pch=22, geom='point', color='red') +
+             scale_y_continuous(labels=myformat_number)
+    
+    if (length(ycol_names) == 1) {
+        aes_str <- paste0("linetype=\"dashed\", yintercept=as.numeric(", ycol_names, ")")        
+        aes_mapping <- eval(parse(text = paste("aes(", aes_str, ")")))
+#         p <- p + geom_hline(data=medians_df, 
+#                             mapping=aes_mapping, show_guide=TRUE
+#                             , color="black", size=1)
+#         p <- p + scale_linetype_identity(guide="legend", name="Stats", 
+#                                          labels=rownames(medians_df))
+        
+        aes_str <- paste0("y=", ycol_names, ".median * 1.05", 
+                          ", label=myformat_number(round(", ycol_names, ".median))")
+        aes_mapping <- eval(parse(text = paste("aes(", aes_str, ")")))
+        p <- p + geom_text(data=medians_df, 
+                           mapping=aes_mapping
+                           , color="NavyBlue", size=3.5)
+    } else {
+        #print(medians_df)
+        p <- p + geom_text(data=medians_df,
+                           mapping=aes_string(x="variable", 
+                                              y="value.median * 1.05",
+                                              label="myformat_number(round(value.median))")
+                           , color="NavyBlue", size=3.5)
+        #print("median text layer applied")
+    }
+    
+    return(p)
+}
+print(myplot_violin(cars_df, "mpg", "am_fctr"))
+
+# Create new features that help diagnostics
+```
+
+#### Is an automatic or manual transmission better for MPG:
+Null Hypothesis ($\sf{H_{0}}$): mpg is not impacted by am_fctr.  
+The variance by am_fctr appears to be independent. 
+```{r q1, cache=TRUE}
+print(t.test(subset(cars_df, am_fctr == "automatic")$mpg, 
+             subset(cars_df, am_fctr == "manual")$mpg, 
+             var.equal=FALSE)$conf)
+```
+We reject the null hypothesis i.e. we have evidence to conclude that am_fctr impacts mpg (95% confidence). Manual transmission is better for miles per gallon versus automatic transmission.
+
+```{r print_sessionInfo, echo=FALSE}
+sessionInfo()
+```
