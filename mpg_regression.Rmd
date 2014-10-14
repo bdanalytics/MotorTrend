@@ -20,6 +20,7 @@ Average mpg for automatic transmission is `17` vs. `23` for manual transmission.
 Manual Transmission provides `7.2449` additional miles per gallon compared to automatic transmission. This result is highly significant - 95% confidence interval is `[3.6415, 10.8484]`
 
 #### Potential next steps include:
+Test other models to better quantify the relationship (confounding factors)
 
 ```{r set_global_options}
 rm(list=ls())
@@ -83,8 +84,14 @@ We reject the null hypothesis i.e. we have evidence to conclude that am_fctr imp
 mpg_fit <- lm(mpg ~ am_fctr, data=cars_df)
 print(summary(mpg_fit))
 ```
-Manual Transmission provides ``r mpg_fit$coeff[2]`` additional miles per gallon compared to automatic transmission. This result is highly significant - 95% confidence interval is `[`r confint(mpg_fit)[2, ]`]`.
+Manual Transmission provides ``r mpg_fit$coeff[2]`` additional miles per gallon compared to automatic transmission. This result is highly significant - 95% confidence interval is `[`r confint(mpg_fit)[2, ]`]`. About ``r round(summary(mpg_fit)$r.squared * 100, 2)``% of the mpg variance is attributable to transmission.
 
+```{r q2_2, cache=TRUE}
+mpg_residuals_df <- data.frame(mpg_fit$residuals, cars_df$mpg, cars_df$am_fctr)
+#print(summaryBy(mpg_fit.residuals ~ cars_df.am_fctr, data=mpg_residuals_df, FUN=mean))
+print(myplot_violin(mpg_residuals_df, "mpg_fit.residuals", "cars_df.am_fctr"))
+```  
+The residuals of the regression does not appear biased with mean close to `0`.
 
 ```{r print_sessionInfo, echo=FALSE}
 sessionInfo()
