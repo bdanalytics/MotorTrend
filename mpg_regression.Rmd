@@ -20,7 +20,9 @@ Average mpg for automatic transmission is `17` vs. `23` for manual transmission.
 Manual Transmission provides `7.2449` additional miles per gallon compared to automatic transmission. This result is highly significant - 95% confidence interval is `[3.6415, 10.8484]`
 
 #### Potential next steps include:
-Test other models to better quantify the relationship (confounding factors)
+0. Inspect residuals by features not used in model
+1. Adjust model for residual heteroskedacity
+2. Test other models to better quantify the relationship (confounding factors)
 
 ```{r set_global_options}
 rm(list=ls())
@@ -87,11 +89,16 @@ print(summary(mpg_fit))
 Manual Transmission provides ``r mpg_fit$coeff[2]`` additional miles per gallon compared to automatic transmission. This result is highly significant - 95% confidence interval is `[`r confint(mpg_fit)[2, ]`]`. About ``r round(summary(mpg_fit)$r.squared * 100, 2)``% of the mpg variance is attributable to transmission.
 
 ```{r q2_2, cache=TRUE}
+#print(myplot_scatter(cars_df, "am_fctr", "mpg", colorcol_name="am_fctr"))
+
 mpg_residuals_df <- data.frame(mpg_fit$residuals, cars_df$mpg, cars_df$am_fctr)
 #print(summaryBy(mpg_fit.residuals ~ cars_df.am_fctr, data=mpg_residuals_df, FUN=mean))
 print(myplot_violin(mpg_residuals_df, "mpg_fit.residuals", "cars_df.am_fctr"))
+
+#print(myplot_scatter(mpg_residuals_df, "cars_df.am_fctr", "mpg_fit.residuals", 
+#                     colorcol_name="cars_df.am_fctr"))
 ```  
-The residuals of the regression does not appear biased with mean close to `0`.
+The residuals of the regression does not appear biased with mean close to `0`. However, there is some minor residual heteroskedacity. 
 
 ```{r print_sessionInfo, echo=FALSE}
 sessionInfo()
