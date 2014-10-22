@@ -17,11 +17,7 @@ Manual transmission is better for miles per gallon versus automatic transmission
 Average mpg for automatic transmission is `17` vs. `23` for manual transmission.  
 
 #### Quantify the MPG difference between automatic and manual transmissions:
-Manual Transmission provides `7.2449` additional miles per gallon compared to automatic transmission. This result is highly significant - 95% confidence interval is `[3.6415, 10.8484]`. 
-
-The model for mean wt did not work.
-
-The brand(s) have the greatest influence on the coefficients in this model.
+Manual Transmission provides `7.2449` additional miles per gallon compared to automatic transmission. This result is highly significant - 95% confidence interval is `[3.6415, 10.8484]`
 
 #### Potential next steps include:
 0. Inspect residuals by features not used in model
@@ -34,29 +30,28 @@ set.seed(12345)
 source("~/Dropbox/datascience/R/mydsutils.R")
 source("~/Dropbox/datascience/R/myplot.R")
 # Gather all package requirements here
-suppressPackageStartupMessages(require(reshape2))
+#suppressPackageStartupMessages(require())
 ```
 
 ```{r set_global_options_wd, echo=FALSE}
 setwd("~/Documents/Work/Courses/Coursera/jhu-datascience/G-Regression-Models/Project/MotorTrend")
 ```
 
-### Import data & Setup analysis
+### Step 01: import data
 ```{r import_data, cache=TRUE}
 data(mtcars)
 cars_df <- mtcars
 myprint_df(cars_df)
 ```
 
+#### Step 02.1: inspect data
 Automtatic Transmission feature (am), number of cylinders (cyl), V/S (vs), number of forward gears (gear) & number of carburetors (carb) are numeric. Let's make them factors for analytics convenience.
-
-```{r inspect_data, cache=TRUE}
+```{r inspect_steps_1, cache=TRUE}
 cars_df$am_fctr <- factor(cars_df$am, labels=c("automatic", "manual"))
 cars_df$cyl_fctr <- factor(cars_df$cyl)
 cars_df$vs_fctr <- factor(cars_df$vs, labels=c("V", "S"))
 cars_df$gear_fctr <- factor(cars_df$gear)
 cars_df$carb_fctr <- factor(cars_df$carb)
-cars_df$id <- rownames(cars_df)
 print(str(cars_df))
 
 #[, 1]  mpg	        numeric:    Miles/(US) gallon
@@ -76,13 +71,10 @@ print(str(cars_df))
 #[,11]	carb	    numeric:    Number of carburetors
 #[,16]  carb_fctr	factor:     Number of carburetors
 
-#[,17]  id          string:     Car make & model
-
 print(summary(cars_df))
 #pairs(subset(entity_df, select=-c(col_symbol)))
 
 print(myplot_violin(cars_df, "mpg", "am_fctr"))
-
 feats_num <- c("disp", "hp", "drat", "wt", "qsec")
 feats_fctr <- c("am_fctr", "cyl_fctr", "vs_fctr", "gear_fctr", "carb_fctr")
 
@@ -100,124 +92,59 @@ print(t.test(subset(cars_df, am_fctr == "automatic")$mpg,
 We reject the null hypothesis i.e. we have evidence to conclude that am_fctr impacts mpg (95% confidence). Manual transmission is better for miles per gallon versus automatic transmission.
 
 #### Quantify the MPG difference between automatic and manual transmissions:
+
 Let's try the univariate model to establish a benchmark against which we can evaluate more complex models, if necessary
-```{r q2_test_model_1, cache=TRUE}
+```{r q2_1, cache=TRUE}
 mpg_fit <- lm(mpg ~ am_fctr, data=cars_df)
 print(summary(mpg_fit))
 ```
-This univariate model is statistically significant and explains ``r format(summary(mpg_fit)$adj.r.squared * 100.0, digits=3, nsmall=1)``% of the mpg variation. 
-
-continue to have this ?
 Manual Transmission provides ``r mpg_fit$coeff[2]`` additional miles per gallon compared to automatic transmission. This result is highly significant - 95% confidence interval is `[`r confint(mpg_fit)[2, ]`]`. About ``r round(summary(mpg_fit)$r.squared * 100, 2)``% of the mpg variance is attributable to transmission.
 
 Let's inspect the residuals for any bias 
-```{r q2_inspect_model_1, cache=TRUE}
-mpg_fit_df <- data.frame(mpg.predict=predict(mpg_fit, cars_df), 
-                         mpg.residuals=mpg_fit$residuals,
-                         mpg=cars_df$mpg, am_fctr=cars_df$am_fctr, id=cars_df$id)
-print(myplot_violin(mpg_fit_df, "mpg.residuals", "mpg.predict"))
-#print(myplot_violin(mpg_fit_df, "mpg.residuals", "am_fctr"))
-#print(myplot_scatter(mpg_fit_df, "mpg.predict", "mpg.residuals", 
-#                     colorcol_name="am_fctr"))
-```  
-The residuals of the regression does NOT appear biased with mean close to `0`. However, there is some minor residual heteroskedacity. Let's examine if the residuals are influenced by features not in this model. For that, let's first inspect the correlations between mpg & each of the features and build labels that are used later in the residual plots
+```{r q2_2, cache=TRUE}
+#print(myplot_scatter(cars_df, "am_fctr", "mpg", colorcol_name="am_fctr"))
 
-```{r q2_compute_cor, cache=TRUE}
+mpg_residuals_df <- data.frame(mpg_fit$residuals, cars_df$mpg, cars_df$am_fctr)
+#print(summaryBy(mpg_fit.residuals ~ cars_df.am_fctr, data=mpg_residuals_df, FUN=mean))
+print(myplot_violin(mpg_residuals_df, "mpg_fit.residuals", "cars_df.am_fctr"))
+
+#print(myplot_scatter(mpg_residuals_df, "cars_df.am_fctr", "mpg_fit.residuals", 
+#                     colorcol_name="cars_df.am_fctr"))
+```  
+The residuals of the regression does not appear biased with mean close to `0`. However, there is some minor residual heteroskedacity. Let's examine if the residuals are influenced by features not in this model.
+
+```{r q2_3, cache=TRUE}
+#print(myplot_scatter(cars_df, "am_fctr", "mpg", colorcol_name="am_fctr"))
+
+mpg_fit_df <- data.frame(mpg.predict=predict(mpg_fit, cars_df), mpg=cars_df$mpg, 
+                         am_fctr=cars_df$am_fctr, mpg.residuals=mpg_fit$residuals)
+#print(summaryBy(mpg_fit.residuals ~ cars_df.am_fctr, data=mpg_residuals_df, FUN=mean))
+print(myplot_violin(mpg_fit_df, "mpg.residuals", "am_fctr"))
+print(myplot_scatter(mpg_fit_df, "mpg.predict", "mpg.residuals"))
+mpg_fit_df <- cbind(mpg_fit_df, cars_df[, feats_fctr[feats_fctr != "am_fctr"]])
+mpg_fit_df <- cbind(mpg_fit_df, cars_df[, feats_num[feats_num != "mpg"]])
+print(myplot_scatter(mpg_fit_df, "mpg.predict", "mpg.residuals", colorcol_name="cyl_fctr"))
+print(myplot_scatter(mpg_fit_df, "mpg.predict", "mpg.residuals", colorcol_name="vs_fctr"))
+print(myplot_scatter(mpg_fit_df, "mpg.predict", "mpg.residuals", colorcol_name="gear_fctr"))
+print(myplot_scatter(mpg_fit_df, "mpg.predict", "mpg.residuals", colorcol_name="carb_fctr"))
+
+#print(myplot_scatter(mpg_fit_df, "mpg.predict", "mpg.residuals", colorcol_name="disp"))
+#print(myplot_scatter(mpg_fit_df, "mpg.predict", "mpg.residuals", colorcol_name="hp"))
+
+#print(myplot_scatter(mpg_residuals_df, "cars_df.am_fctr", "mpg_fit.residuals", 
+#                     colorcol_name="cars_df.am_fctr"))
+```  
+
+Clearly, other features can provide additional insights into the relationship between mpg & transmission.
+```{r q2_3_1, cache=TRUE}
 mpg_cor_df <- data.frame(mpg.cor=cor(cars_df[, c(gsub("_fctr", "", feats_fctr), 
                                                  feats_num)], cars_df[, "mpg"]))
 mpg_cor_df$mpg.cor.abs <- abs(mpg_cor_df$mpg.cor)
 mpg_cor_df <- orderBy(~ -mpg.cor.abs, data=mpg_cor_df)
-mpg_cor_df$feature <- rownames(mpg_cor_df)
-require(plyr)
-mpg_cor_df <- mutate(mpg_cor_df, 
-                     variable=ifelse(feature %in% feats_num, feature, paste0(feature, "_fctr")),
-                     label=paste0(ifelse(feature %in% feats_num, feature, paste0(feature, "_fctr")), ".mpg.cor=", ifelse(mpg.cor > 0, '+', ''),
-                                  format(mpg.cor, nsmall=3, digits=3)))
 myprint_df(mpg_cor_df)
 ```  
+Let's add features to the simple model (mpg_fit) in order of the features correlated with mpg (highest goes first)
 
-```{r q2_inspect_model_1_residuals, cache=TRUE}
-mpg_fit_df <- cbind(mpg_fit_df, cars_df[, feats_fctr[feats_fctr != "am_fctr"]])
-mpg_fit_df <- cbind(mpg_fit_df, cars_df[, feats_num[feats_num != "mpg"]])
-
-#print(myplot_scatter(cars_df, "am_fctr", "mpg", colorcol_name="am_fctr"))
-
-#print(summaryBy(mpg_fit.residuals ~ cars_df.am_fctr, data=mpg_residuals_df, FUN=mean))
-# print(myplot_violin(mpg_fit_df, "mpg.residuals", "am_fctr"))
-# print(myplot_scatter(mpg_fit_df, "mpg.predict", "mpg.residuals"))
-# print(myplot_scatter(mpg_fit_df, "mpg.predict", "mpg.residuals", colorcol_name="cyl_fctr"))
-# print(myplot_scatter(mpg_fit_df, "mpg.predict", "mpg.residuals", colorcol_name="vs_fctr"))
-# print(myplot_scatter(mpg_fit_df, "mpg.predict", "mpg.residuals", colorcol_name="gear_fctr"))
-# print(myplot_scatter(mpg_fit_df, "mpg.predict", "mpg.residuals", colorcol_name="carb_fctr"))
-
-mpg_fit_plot_df <- melt(mpg_fit_df[, c("id", "mpg", "mpg.predict", "mpg.residuals", 
-                                       feats_fctr, feats_num)], 
-                        id.vars=c("id", "mpg", "mpg.predict", "mpg.residuals", 
-                                  "am_fctr"))
-mpg_fit_plot_df <- orderBy(~ id + variable, mpg_fit_plot_df)
-tail(mpg_fit_df)
-tail(mpg_fit_plot_df, 10)
-#print(myplot_scatter(cars_plot_df, "am_fctr", "mpg", colorcol_name="value", 
-#                     facet_rowcol_name="variable"))
-#print(myplot_scatter(cars_plot_df, "am_fctr", "mpg", colorcol_name="value") + 
-#          facet_wrap(~ variable))
-intersect(names(mpg_fit_plot_df), names(mpg_cor_df[, c("variable", "label")]))
-mpg_fit_plot_df <- merge(mpg_fit_plot_df, mpg_cor_df[, c("variable", "label")],
-                             all.x=TRUE)
-#print(nrow(mpg_fit_plot_df) == nrow(tmp_mpg_fit_plot_df))
-mpg_fit_plot_df <- orderBy(~ id + variable, mpg_fit_plot_df)
-#tail(tmp_mpg_fit_plot_df)
-#print(myplot_scatter(mpg_fit_plot_df, "mpg.predict", "mpg.residuals", colorcol_name="am_fctr") + 
-#          facet_wrap(~ variable, scales="free_x"))
-print(myplot_scatter(mpg_fit_plot_df, "mpg.predict", "mpg.residuals", colorcol_name="am_fctr") + 
-          facet_wrap(~ label, scales="free_x"))
-```
-None of the other variables seem to explain any more mpg variation at first glance. Let's check the actual distribution of mpg vs. am_fctr.
-
-```{r q2_inspect_data_1, cache=TRUE}
-#print(myplot_scatter(cars_df, "am_fctr", "mpg", colorcol_name="cyl_fctr"))
-#print(myplot_scatter(cars_df, "cyl_fctr", "mpg", colorcol_name="am_fctr"))
-cars_plot_df <- melt(cars_df[, c("id", "mpg", feats_fctr, feats_num)], 
-                     id.vars=c("id", "mpg", "am_fctr"))
-cars_plot_df <- orderBy(~ id + variable, cars_plot_df)
-#tail(cars_df)
-#tail(cars_plot_df)
-#print(myplot_scatter(cars_plot_df, "am_fctr", "mpg", colorcol_name="value", 
-#                     facet_rowcol_name="variable"))
-#print(myplot_scatter(cars_plot_df, "am_fctr", "mpg", colorcol_name="value") + 
-#          facet_wrap(~ variable))
-
-intersect(names(cars_plot_df), names(mpg_cor_df[, c("variable", "label", "mpg.cor.abs")]))
-cars_plot_df <- merge(cars_plot_df, mpg_cor_df[, c("variable", "label", "mpg.cor.abs")],
-                             all.x=TRUE)
-#print(nrow(cars_plot_df) == nrow(tmp_cars_plot_df))
-cars_plot_df <- orderBy(~ id + variable, cars_plot_df)
-print(mpg_cor_df$label)
-cars_plot_df$label_fctr <- factor(cars_plot_df$label, levels=mpg_cor_df$label)
-print(myplot_scatter(cars_plot_df, "value", "mpg", colorcol_name="am_fctr") + 
-          facet_wrap(~ label_fctr, scales="free_x"))
-```
-Clearly, other features can provide additional insights into the relationship between mpg & transmission. Let's add features to the simple model (mpg_fit) in order of the features correlated with mpg (highest goes first).
-```{r q2_test_model_wt, cache=TRUE}
-mpg_wt_fit <- update(mpg_fit, mpg ~ am_fctr + wt, data=cars_df)
-mpg_wt_i_fit <- update(mpg_fit, mpg ~ am_fctr * wt, data=cars_df)
-print(anova(mpg_fit, mpg_wt_fit, mpg_wt_i_fit))
-print(summary(mpg_wt_i_fit))
-
-mpg_wt_i_fit_df <- data.frame(mpg.predict=predict(mpg_wt_i_fit, cars_df), 
-                              mpg=cars_df$mpg, 
-                              am_fctr=cars_df$am_fctr, wt=cars_df$wt,
-                              mpg.residuals=mpg_wt_i_fit$residuals)
-print(myplot_violin(mpg_wt_i_fit_df, "mpg.residuals", "am_fctr"))
-print(myplot_scatter(mpg_wt_i_fit_df, "mpg.predict", "mpg.residuals"))
-plot(mpg_wt_i_fit, which=1)
-plot(mpg_wt_i_fit, which=2)
-plot(mpg_wt_i_fit, which=3)
-plot(mpg_wt_i_fit, which=4)
-plot(mpg_wt_i_fit, which=5)
-plot(mpg_wt_i_fit, which=6)
-```
-The heteroskedacity continues to exist, but Adj-Rsq is 0.8151. Let's add cyl_fctr which is the next highest correlated feature with mpg.
 ```{r q2_4, cache=TRUE}
 mpg_wt_fit <- update(mpg_fit, mpg ~ am_fctr + wt, data=cars_df)
 mpg_wt_i_fit <- update(mpg_fit, mpg ~ am_fctr * wt, data=cars_df)
@@ -237,6 +164,8 @@ plot(mpg_wt_i_fit, which=4)
 plot(mpg_wt_i_fit, which=5)
 plot(mpg_wt_i_fit, which=6)
 ```
+The heteroskedacity continues to exist, but Adj-Rsq is 0.8151. Let's add cyl_fctr which is the next highest correlated feature with mpg.
+
 ```{r q2_4_F, cache=TRUE}
 mpg_mean_wt_i_fit <- update(mpg_fit, mpg ~ am_fctr * I(wt - mean(wt)), data=cars_df)
 print(anova(mpg_fit, mpg_wt_i_fit, mpg_mean_wt_i_fit))
