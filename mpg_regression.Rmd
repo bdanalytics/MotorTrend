@@ -45,28 +45,38 @@ myprint_df(cars_df)
 ```
 
 #### Step 02.1: inspect data
-Automtatic Transmission feature (am) is numeric. Let's make it a factor for analytics convenience.
+Automtatic Transmission feature (am), number of cylinders (cyl), V/S (vs), number of forward gears (gear) & number of carburetors (carb) are numeric. Let's make them factors for analytics convenience.
 ```{r inspect_steps_1, cache=TRUE}
 cars_df$am_fctr <- factor(cars_df$am, labels=c("automatic", "manual"))
+cars_df$cyl_fctr <- factor(cars_df$cyl)
+cars_df$vs_fctr <- factor(cars_df$vs, labels=c("V", "S"))
+cars_df$gear_fctr <- factor(cars_df$gear)
+cars_df$carb_fctr <- factor(cars_df$carb)
 print(str(cars_df))
 
-#[, 1]  mpg	    Miles/(US) gallon
-#[, 2]	cyl	    Number of cylinders
-#[, 3]	disp	Displacement (cu.in.)
-#[, 4]	hp	    Gross horsepower
-#[, 5]	drat	Rear axle ratio
-#[, 6]	wt	    Weight (lb/1000)
-#[, 7]	qsec	1/4 mile time
-#[, 8]	vs	    V/S
-#[, 9]	am	    numeric:    Transmission (0 = automatic, 1 = manual)
-#[,12]  am_fctr	factor:     Transmission (automatic, manual)
-#[,10]	gear	Number of forward gears
-#[,11]	carb	Number of carburetors
+#[, 1]  mpg	        numeric:    Miles/(US) gallon
+#[, 2]	cyl	        numeric:    Number of cylinders
+#[,13]  cyl_fctr	factor:     Number of cylinders
+#[, 3]	disp	    numeric:    Displacement (cu.in.)
+#[, 4]	hp	        numeric:    Gross horsepower
+#[, 5]	drat	    numeric:    Rear axle ratio
+#[, 6]	wt	        numeric:    Weight (lb/1000)
+#[, 7]	qsec	    numeric:    1/4 mile time
+#[, 8]	vs	        numeric:    V/S
+#[,14]  vs_fctr     factor:     V/S (0 = V, 1 = S) ???
+#[, 9]	am	        numeric:    Transmission (0 = automatic, 1 = manual)
+#[,12]  am_fctr	    factor:     Transmission (automatic, manual)
+#[,10]	gear	    numeric:    Number of forward gears
+#[,15]  gear_fctr	factor:     Number of forward gears
+#[,11]	carb	    numeric:    Number of carburetors
+#[,16]  carb_fctr	factor:     Number of carburetors
 
 print(summary(cars_df))
 #pairs(subset(entity_df, select=-c(col_symbol)))
 
 print(myplot_violin(cars_df, "mpg", "am_fctr"))
+feats_num <- c("disp", "hp", "drat", "wt", "qsec")
+feats_fctr <- c("am_fctr", "cyl_fctr", "vs_fctr", "gear_fctr", "carb_fctr")
 
 # Create new features that help diagnostics
 ```
@@ -82,12 +92,15 @@ print(t.test(subset(cars_df, am_fctr == "automatic")$mpg,
 We reject the null hypothesis i.e. we have evidence to conclude that am_fctr impacts mpg (95% confidence). Manual transmission is better for miles per gallon versus automatic transmission.
 
 #### Quantify the MPG difference between automatic and manual transmissions:
+
+Let's try the univariate model to establish a benchmark against which we can evaluate more complex models, if necessary
 ```{r q2_1, cache=TRUE}
 mpg_fit <- lm(mpg ~ am_fctr, data=cars_df)
 print(summary(mpg_fit))
 ```
 Manual Transmission provides ``r mpg_fit$coeff[2]`` additional miles per gallon compared to automatic transmission. This result is highly significant - 95% confidence interval is `[`r confint(mpg_fit)[2, ]`]`. About ``r round(summary(mpg_fit)$r.squared * 100, 2)``% of the mpg variance is attributable to transmission.
 
+Let's inspect the residuals for any bias 
 ```{r q2_2, cache=TRUE}
 #print(myplot_scatter(cars_df, "am_fctr", "mpg", colorcol_name="am_fctr"))
 
@@ -98,7 +111,187 @@ print(myplot_violin(mpg_residuals_df, "mpg_fit.residuals", "cars_df.am_fctr"))
 #print(myplot_scatter(mpg_residuals_df, "cars_df.am_fctr", "mpg_fit.residuals", 
 #                     colorcol_name="cars_df.am_fctr"))
 ```  
-The residuals of the regression does not appear biased with mean close to `0`. However, there is some minor residual heteroskedacity. 
+The residuals of the regression does not appear biased with mean close to `0`. However, there is some minor residual heteroskedacity. Let's examine if the residuals are influenced by features not in this model.
+
+```{r q2_3, cache=TRUE}
+#print(myplot_scatter(cars_df, "am_fctr", "mpg", colorcol_name="am_fctr"))
+
+mpg_fit_df <- data.frame(mpg.predict=predict(mpg_fit, cars_df), mpg=cars_df$mpg, 
+                         am_fctr=cars_df$am_fctr, mpg.residuals=mpg_fit$residuals)
+#print(summaryBy(mpg_fit.residuals ~ cars_df.am_fctr, data=mpg_residuals_df, FUN=mean))
+print(myplot_violin(mpg_fit_df, "mpg.residuals", "am_fctr"))
+print(myplot_scatter(mpg_fit_df, "mpg.predict", "mpg.residuals"))
+mpg_fit_df <- cbind(mpg_fit_df, cars_df[, feats_fctr[feats_fctr != "am_fctr"]])
+mpg_fit_df <- cbind(mpg_fit_df, cars_df[, feats_num[feats_num != "mpg"]])
+print(myplot_scatter(mpg_fit_df, "mpg.predict", "mpg.residuals", colorcol_name="cyl_fctr"))
+print(myplot_scatter(mpg_fit_df, "mpg.predict", "mpg.residuals", colorcol_name="vs_fctr"))
+print(myplot_scatter(mpg_fit_df, "mpg.predict", "mpg.residuals", colorcol_name="gear_fctr"))
+print(myplot_scatter(mpg_fit_df, "mpg.predict", "mpg.residuals", colorcol_name="carb_fctr"))
+
+#print(myplot_scatter(mpg_fit_df, "mpg.predict", "mpg.residuals", colorcol_name="disp"))
+#print(myplot_scatter(mpg_fit_df, "mpg.predict", "mpg.residuals", colorcol_name="hp"))
+
+#print(myplot_scatter(mpg_residuals_df, "cars_df.am_fctr", "mpg_fit.residuals", 
+#                     colorcol_name="cars_df.am_fctr"))
+```  
+
+Clearly, other features can provide additional insights into the relationship between mpg & transmission.
+```{r q2_3_1, cache=TRUE}
+mpg_cor_df <- data.frame(mpg.cor=cor(cars_df[, c(gsub("_fctr", "", feats_fctr), 
+                                                 feats_num)], cars_df[, "mpg"]))
+mpg_cor_df$mpg.cor.abs <- abs(mpg_cor_df$mpg.cor)
+mpg_cor_df <- orderBy(~ -mpg.cor.abs, data=mpg_cor_df)
+myprint_df(mpg_cor_df)
+```  
+Let's add features to the simple model (mpg_fit) in order of the features correlated with mpg (highest goes first)
+
+```{r q2_4, cache=TRUE}
+mpg_wt_fit <- update(mpg_fit, mpg ~ am_fctr + wt, data=cars_df)
+mpg_wt_i_fit <- update(mpg_fit, mpg ~ am_fctr * wt, data=cars_df)
+print(anova(mpg_fit, mpg_wt_fit, mpg_wt_i_fit))
+print(summary(mpg_wt_i_fit))
+
+mpg_wt_i_fit_df <- data.frame(mpg.predict=predict(mpg_wt_i_fit, cars_df), 
+                              mpg=cars_df$mpg, 
+                              am_fctr=cars_df$am_fctr, wt=cars_df$wt,
+                              mpg.residuals=mpg_wt_i_fit$residuals)
+print(myplot_violin(mpg_wt_i_fit_df, "mpg.residuals", "am_fctr"))
+print(myplot_scatter(mpg_wt_i_fit_df, "mpg.predict", "mpg.residuals"))
+plot(mpg_wt_i_fit, which=1)
+plot(mpg_wt_i_fit, which=2)
+plot(mpg_wt_i_fit, which=3)
+plot(mpg_wt_i_fit, which=4)
+plot(mpg_wt_i_fit, which=5)
+plot(mpg_wt_i_fit, which=6)
+```
+The heteroskedacity continues to exist, but Adj-Rsq is 0.8151. Let's add cyl_fctr which is the next highest correlated feature with mpg.
+
+```{r q2_4_F, cache=TRUE}
+mpg_mean_wt_i_fit <- update(mpg_fit, mpg ~ am_fctr * I(wt - mean(wt)), data=cars_df)
+print(anova(mpg_fit, mpg_wt_i_fit, mpg_mean_wt_i_fit))
+print(summary(mpg_mean_wt_i_fit))
+
+mpg_wt_i_fit_df <- data.frame(mpg.predict=predict(mpg_wt_i_fit, cars_df), 
+                              mpg=cars_df$mpg, 
+                              am_fctr=cars_df$am_fctr, wt=cars_df$wt,
+                              mpg.residuals=mpg_wt_i_fit$residuals)
+print(myplot_violin(mpg_wt_i_fit_df, "mpg.residuals", "am_fctr"))
+print(myplot_scatter(mpg_wt_i_fit_df, "mpg.predict", "mpg.residuals"))
+plot(mpg_wt_i_fit, which=1)
+plot(mpg_wt_i_fit, which=2)
+plot(mpg_wt_i_fit, which=3)
+plot(mpg_wt_i_fit, which=4)
+plot(mpg_wt_i_fit, which=5)
+plot(mpg_wt_i_fit, which=6)
+```
+
+```{r q2_5, cache=TRUE}
+mpg_cyl_fit <- update(mpg_wt_i_fit, mpg ~ am_fctr + wt + cyl_fctr, data=cars_df)
+mpg_cyl_i_fit <- update(mpg_wt_i_fit, mpg ~ am_fctr * wt + am_fctr * cyl_fctr, data=cars_df)
+print(anova(mpg_fit, mpg_wt_i_fit, mpg_cyl_fit, mpg_cyl_i_fit))
+print(summary(mpg_cyl_i_fit))
+```
+
+cyl_fctr does not seem to be a valuable addition to the model. 
+
+```{r q2_6, cache=TRUE}
+mpg_disp_fit <- update(mpg_wt_i_fit, mpg ~ am_fctr + wt + disp, data=cars_df)
+mpg_disp_i_fit <- update(mpg_wt_i_fit, mpg ~ am_fctr * wt + am_fctr * disp, data=cars_df)
+print(anova(mpg_fit, mpg_wt_i_fit, mpg_disp_fit, mpg_disp_i_fit))
+print(summary(mpg_disp_i_fit))
+```
+Even though mpg_disp_i_fit is "better" than mpg_wt_i_fit, most of the coefficients of mpg_disp_i_fit are not significant. So, we discard these models.
+
+```{r q2_7, cache=TRUE}
+mpg_hp_fit <- update(mpg_wt_i_fit, mpg ~ am_fctr + wt + hp, data=cars_df)
+mpg_hp_i_fit <- update(mpg_wt_i_fit, mpg ~ am_fctr * wt + am_fctr * hp, data=cars_df)
+print(anova(mpg_fit, mpg_wt_i_fit, mpg_hp_fit, mpg_hp_i_fit))
+print(summary(mpg_hp_i_fit))
+
+mpg_hp_i_fit_df <- data.frame(mpg.predict=predict(mpg_hp_i_fit, cars_df), 
+                              mpg=cars_df$mpg, 
+                              am_fctr=cars_df$am_fctr, wt=cars_df$wt, hp=cars_df$hp,
+                              mpg.residuals=mpg_hp_i_fit$residuals)
+print(myplot_violin(mpg_hp_i_fit_df, "mpg.residuals", "am_fctr"))
+print(myplot_scatter(mpg_hp_i_fit_df, "mpg.predict", "mpg.residuals"))
+```
+
+```{r q2_8, cache=TRUE}
+mpg_drat_fit <- update(mpg_hp_i_fit, mpg ~ am_fctr + wt + hp + drat, data=cars_df)
+mpg_drat_i_fit <- update(mpg_hp_i_fit, 
+                         mpg ~ am_fctr * wt + am_fctr * hp + am_fctr * drat, 
+                         data=cars_df)
+print(anova(mpg_fit, mpg_wt_i_fit, mpg_hp_i_fit, mpg_drat_fit, mpg_drat_i_fit))
+print(summary(mpg_drat_fit))
+```
+am_fctr coeff becomes unreliable
+
+```{r q2_9, cache=TRUE}
+mpg_vs_fit <- update(mpg_hp_i_fit, mpg ~ am_fctr + wt + hp + vs, data=cars_df)
+mpg_vs_i_fit <- update(mpg_hp_i_fit, 
+                         mpg ~ am_fctr * wt + am_fctr * hp + am_fctr * vs, 
+                         data=cars_df)
+print(anova(mpg_fit, mpg_wt_i_fit, mpg_hp_i_fit, mpg_vs_fit, mpg_vs_i_fit))
+print(summary(mpg_vs_fit))
+```
+am_fctr coeff becomes unreliable
+
+```{r q2_10, cache=TRUE}
+mpg_carb_fit <- update(mpg_hp_i_fit, mpg ~ am_fctr + wt + hp + carb_fctr, data=cars_df)
+mpg_carb_i_fit <- update(mpg_hp_i_fit, 
+                         mpg ~ am_fctr * wt + am_fctr * hp + am_fctr * carb_fctr, 
+                         data=cars_df)
+print(anova(mpg_fit, mpg_wt_i_fit, mpg_hp_i_fit, mpg_carb_fit, mpg_carb_i_fit))
+#print(summary(mpg_vs_fit))
+```
+anova fails
+```{r q2_11, cache=TRUE}
+mpg_gear_fit <- update(mpg_hp_i_fit, mpg ~ am_fctr + wt + hp + gear_fctr, data=cars_df)
+mpg_gear_i_fit <- update(mpg_hp_i_fit, 
+                         mpg ~ am_fctr * wt + am_fctr * hp + am_fctr * gear_fctr, 
+                         data=cars_df)
+print(anova(mpg_fit, mpg_wt_i_fit, mpg_hp_i_fit, mpg_gear_fit, mpg_gear_i_fit))
+print(summary(mpg_gear_i_fit))
+```
+Anova works; some coeffs are NA but tolerable
+
+```{r q2_12, cache=TRUE}
+mpg_qsec_fit <- update(mpg_hp_i_fit, mpg ~ am_fctr + wt + hp + qsec, data=cars_df)
+mpg_qsec_i_fit <- update(mpg_hp_i_fit, 
+                         mpg ~ am_fctr * wt + am_fctr * hp + am_fctr * qsec, 
+                         data=cars_df)
+print(anova(mpg_fit, mpg_wt_i_fit, mpg_hp_i_fit, mpg_qsec_fit, mpg_qsec_i_fit))
+print(summary(mpg_qsec_i_fit))
+print(summary(mpg_qsec_fit))
+```
+Nothing works
+```{r q2_B_1, cache=TRUE}
+am_cor_df <- data.frame(am.cor=cor(cars_df[, 
+                                           c(gsub("_fctr", "", 
+                                                  feats_fctr[feats_fctr != "am_fctr"]), 
+                                                 feats_num)], cars_df[, "am"]))
+am_cor_df$am.cor.abs <- abs(am_cor_df$am.cor)
+am_cor_df <- orderBy(~ am.cor.abs, data=am_cor_df)
+myprint_df(am_cor_df)
+```
+
+```{r q2_B_2, cache=TRUE}
+mpg_carb_fit <- update(mpg_fit, mpg ~ am_fctr + carb_fctr, data=cars_df)
+mpg_carb_i_fit <- update(mpg_fit, mpg ~ am_fctr * carb_fctr, data=cars_df)
+print(anova(mpg_fit, mpg_carb_fit, mpg_carb_i_fit))
+print(summary(mpg_carb_fit))
+```
+
+```{r q2_B_3, cache=TRUE}
+mpg_gear_fit <- update(mpg_fit, mpg ~ am_fctr + gear_fctr, data=cars_df)
+mpg_gear_i_fit <- update(mpg_fit, mpg ~ am_fctr * gear_fctr, data=cars_df)
+print(anova(mpg_fit, mpg_gear_fit, mpg_gear_i_fit))
+print(summary(mpg_gear_fit))
+```
+
+```{r}
+print(anova(mpg_fit, mpg_wt_i_fit, mpg_carb_i_fit))
+```
 
 ```{r print_sessionInfo, echo=FALSE}
 sessionInfo()
