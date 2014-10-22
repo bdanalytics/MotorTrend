@@ -112,9 +112,16 @@ Manual Transmission provides ``r mpg_fit$coeff[2]`` additional miles per gallon 
 
 Let's inspect the residuals for any bias 
 ```{r q2_inspect_model_1, cache=TRUE}
-mpg_fit_df <- data.frame(mpg.predict=predict(mpg_fit, cars_df), 
-                         mpg.residuals=mpg_fit$residuals,
-                         mpg=cars_df$mpg, am_fctr=cars_df$am_fctr, id=cars_df$id)
+build_fit_df <- function(fit) {
+    df <- data.frame(mpg.predict=predict(fit, cars_df), 
+                     mpg.residuals=fit$residuals,
+                     mpg=cars_df$mpg, am_fctr=cars_df$am_fctr, id=cars_df$id)
+    df <- cbind(df, cars_df[, feats_fctr[feats_fctr != "am_fctr"]])
+    df <- cbind(df, cars_df[, feats_num[feats_num != "mpg"]])
+}
+mpg_fit_df <- build_fit_df(mpg_fit)
+#all.equal(mpg_fit_old_df, mpg_fit_df)
+
 print(myplot_violin(mpg_fit_df, "mpg.residuals", "mpg.predict"))
 #print(myplot_violin(mpg_fit_df, "mpg.residuals", "am_fctr"))
 #print(myplot_scatter(mpg_fit_df, "mpg.predict", "mpg.residuals", 
@@ -137,8 +144,6 @@ myprint_df(mpg_cor_df)
 ```  
 
 ```{r q2_inspect_model_1_residuals, cache=TRUE}
-mpg_fit_df <- cbind(mpg_fit_df, cars_df[, feats_fctr[feats_fctr != "am_fctr"]])
-mpg_fit_df <- cbind(mpg_fit_df, cars_df[, feats_num[feats_num != "mpg"]])
 
 #print(myplot_scatter(cars_df, "am_fctr", "mpg", colorcol_name="am_fctr"))
 
@@ -203,12 +208,44 @@ mpg_wt_fit <- update(mpg_fit, mpg ~ am_fctr + wt, data=cars_df)
 mpg_wt_i_fit <- update(mpg_fit, mpg ~ am_fctr * wt, data=cars_df)
 print(anova(mpg_fit, mpg_wt_fit, mpg_wt_i_fit))
 print(summary(mpg_wt_i_fit))
+```
+The interaction model of am_fctr & wt is statistically significant (`99%` confidence) and all the model coefficients are significant (`99%` confidence). None of the other models tested piecewise for each additional feature in a similar fashion crossed these thresholds. Adj-Rsq is ``r format(summary(mpg_wt_i_fit)$adj.r.squared, nsmall=3, digits=3)`` 
 
-mpg_wt_i_fit_df <- data.frame(mpg.predict=predict(mpg_wt_i_fit, cars_df), 
-                              mpg=cars_df$mpg, 
-                              am_fctr=cars_df$am_fctr, wt=cars_df$wt,
-                              mpg.residuals=mpg_wt_i_fit$residuals)
-print(myplot_violin(mpg_wt_i_fit_df, "mpg.residuals", "am_fctr"))
+```{r q2_inspect_model_wt_i_1, cache=TRUE}
+# mpg_wt_i_fit_old_df <- data.frame(mpg.predict=predict(mpg_wt_i_fit, cars_df), 
+#                               mpg=cars_df$mpg, 
+#                               am_fctr=cars_df$am_fctr, wt=cars_df$wt,
+#                               mpg.residuals=mpg_wt_i_fit$residuals)
+mpg_wt_i_fit_df <- build_fit_df(mpg_wt_i_fit)
+
+extract_fit_formula <- function(fit) {
+    str <- strsplit(toString(summary(fit)$call$formula), ',')
+    tmp_str <- str[[1]]
+    str <- paste0(tmp_str[2], " ", tmp_str[1], tmp_str[3:length(tmp_str)])
+}
+
+violin_plot_df <- rbind(cbind(mpg_fit_df, 
+                             data.frame(fit_str=rep(extract_fit_formula(mpg_fit), 
+                                                    nrow(mpg_fit_df)))),
+                        cbind(mpg_wt_i_fit_df, 
+                              data.frame(fit_str=rep(extract_fit_formula(mpg_wt_i_fit), 
+                                                     nrow(mpg_wt_i_fit_df)))))
+print(ggplot(violin_plot_df, aes(x=am_fctr, y=mpg.residuals)) + 
+      geom_violin(aes(fill=fit_str), color="blue") + 
+      facet_wrap(~ fit_str) + 
+      stat_summary(fun.y=mean, pch=22, geom='point', color='red') + 
+      geom_smooth(aes(group=1)) + 
+      theme(legend.position="none"))
+```
+The heteroskedacity of the residuals is reduced significantly. 
+```{r q2_inspect_model_wt_i_2, cache=TRUE}
+print(ggplot(violin_plot_df, aes(x=mpg.predict, y=mpg.residuals)) + 
+      geom_violin(aes(fill=fit_str), color="blue") + 
+      facet_wrap(~ fit_str) + 
+      stat_summary(fun.y=mean, pch=22, geom='point', color='red') + 
+      geom_smooth(aes(group=1)) + 
+      theme(legend.position="none"))
+
 print(myplot_scatter(mpg_wt_i_fit_df, "mpg.predict", "mpg.residuals"))
 plot(mpg_wt_i_fit, which=1)
 plot(mpg_wt_i_fit, which=2)
