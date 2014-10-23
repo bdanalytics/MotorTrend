@@ -1,8 +1,7 @@
 ---
-# Get YAML keywords from myYAML_ref.Rmd
-title: "Motor Trend: mpg regression"
+title: 'Motor Trend: mpg regression'
 author: "bdanalytics"
-#output: html_document
+output: pdf_document
 ---
 #### Date: `r format(Sys.time(), "(%a) %b %d, %Y")`
 
@@ -10,25 +9,7 @@ Data: Motor Trend Car Road Tests "mtcars {datasets}"
 Source: Henderson and Velleman (1981), Building multiple regression models interactively. Biometrics, 37, 391–411.  
 Time period: 1973–74 models
 
-### Synopsis:
-
-#### Is an automatic or manual transmission better for MPG:
-Manual transmission is better for miles per gallon versus automatic transmission.  
-Average mpg for automatic transmission is `17` vs. `23` for manual transmission.  
-
-#### Quantify the MPG difference between automatic and manual transmissions:
-The univariate model yields `mpg ~ 17.15 + 7.25 * manual` while explaining only `33.8%` of the mpg variation.
-
-The proposed multivariate model yields `mpg ~ 46.30 - 9.08 * wt` for cars with manual transmission and `mpg ~ 31.42 - 3.79 * wt` for cars with automatic transmission where `wt` is weight (lb/1000) of the car. This model explains `81.5%` of the mpg variation at a `99%` confidence level. The most influential data point turned out to be Maserati Bora which would decrease the predicted mpg by `0.98` - did not know until now that Maseratis are that efficient.
-
-The model for variation from mean weight (wt) did not pass the statistical significance tests. Additional features were not statistically significant and/or explain additional mpg variation. The proposed model contains minor negative correlation of residuals with predicted values & residual heteroskedacity.
-
-#### Potential next steps include:
-1. Test other regression techniques (e.g. additive models in glm) to better quantify the relationship.
-2. Add Maserati labels to points in scatter plots to better understand it's influence on the model
-3. ???
-
-```{r set_global_options}
+```{r set_global_options, echo=FALSE}
 rm(list=ls())
 set.seed(12345)
 source("~/Dropbox/datascience/R/mydsutils.R")
@@ -41,23 +22,58 @@ suppressPackageStartupMessages(require(plyr))
 ```{r set_global_options_wd, echo=FALSE}
 setwd("~/Documents/Work/Courses/Coursera/jhu-datascience/G-Regression-Models/Project/MotorTrend")
 ```
+### Synopsis:
 
-### Import data & Setup analysis
-```{r import_data, cache=TRUE}
+#### Is an automatic or manual transmission better for MPG:
+Manual transmission is better for miles per gallon versus automatic transmission.  
+Average mpg for automatic transmission is `17` vs. `23` for manual transmission.  
+
+#### Quantify the MPG difference between automatic and manual transmissions:
+The univariate model yields `mpg ~ 17.15 + 7.25 * manual` while explaining only `33.8%` of the mpg variation.
+
+The proposed multivariate model yields `mpg ~ 46.30 - 9.08 * wt` for cars with manual transmission and `mpg ~ 31.42 - 3.79 * wt` for cars with automatic transmission where `wt` is weight (lb/1000) of the car. This model explains `81.5%` of the mpg variation at a `99%` confidence level. The most influential data point turned out to be Maserati Bora which would increase the predicted mpg by `0.63` for cars with manual transmission without it. The most influential data point for automatic transmission was Lincoln Continental.
+
+```{r synopsis_plot_model_wt_i, echo=FALSE, fig.height=5}
+data(mtcars)
+cars_df <- mtcars
+cars_df$am_fctr <- factor(cars_df$am, labels=c("automatic", "manual"))
+cars_df$id <- rownames(cars_df)
+cars_df <- mutate(cars_df, 
+                  id_outlier=ifelse(((id == "Maserati Bora") | 
+                                     (id == "Lincoln Continental")), id, ""))
+print(myplot_scatter(cars_df, "wt", "mpg", colorcol_name="am_fctr") + 
+      #xlim(0, 6) +    
+      scale_x_continuous(limits=c(1.5, 5.5), breaks=seq(1.5, 5.5, by=0.5)) +       
+      geom_text(aes(label=id_outlier), size=3)      
+     )
+```
+
+The model for variation from mean weight (wt) did not pass the statistical significance tests. Additional features were not statistically significant and/or explain additional mpg variation. The proposed model contains minor negative correlation of residuals with predicted values & residual heteroskedacity.
+
+#### Potential next steps include:
+1. Compress report to 5 pages; Knit PDF keeps crashing on my computer... extremely tedious to optimize length
+2. Test other regression techniques (e.g. additive models in glm) to better quantify the relationship.
+
+### Appendix:
+#### Import data & setup analytics:
+```{r import_data, cache=TRUE, echo=FALSE, results='hide'}
 data(mtcars)
 cars_df <- mtcars
 myprint_df(cars_df)
 ```
 
-Automtatic Transmission feature (am), number of cylinders (cyl), V/S (vs), number of forward gears (gear) & number of carburetors (carb) are numeric. Let's make them factors for analytics convenience.
+Automatic Transmission feature (am), number of cylinders (cyl), V/S (vs), number of forward gears (gear) & number of carburetors (carb) are numeric. Let's make them factors for analytics convenience.
 
-```{r inspect_data, cache=TRUE}
+```{r inspect_data_1, cache=TRUE, echo=FALSE, results='hide', fig.height=5}
 cars_df$am_fctr <- factor(cars_df$am, labels=c("automatic", "manual"))
 cars_df$cyl_fctr <- factor(cars_df$cyl)
 cars_df$vs_fctr <- factor(cars_df$vs, labels=c("V", "S"))
 cars_df$gear_fctr <- factor(cars_df$gear)
 cars_df$carb_fctr <- factor(cars_df$carb)
 cars_df$id <- rownames(cars_df)
+cars_df <- mutate(cars_df, 
+                  id_outlier=ifelse(((id == "Maserati Bora") | 
+                                     (id == "Lincoln Continental")), id, ""))
 #print(str(cars_df))
 
 #[, 1]  mpg	        numeric:    Miles/(US) gallon
@@ -83,8 +99,11 @@ print(summary(cars_df))
 
 feats_num <- c("disp", "hp", "drat", "wt", "qsec")
 feats_fctr <- c("am_fctr", "cyl_fctr", "vs_fctr", "gear_fctr", "carb_fctr")
-
-print(myplot_violin(cars_df, "mpg", "am_fctr"))
+```
+```{r inspect_data_2, cache=TRUE, echo=FALSE}
+print(myplot_violin(cars_df, "mpg", "am_fctr") + 
+      geom_text(aes(label=id_outlier), size=3)
+     )
 ```
 
 #### Is an automatic or manual transmission better for MPG:
@@ -108,24 +127,25 @@ This univariate model is statistically significant and explains ``r format(summa
 Manual Transmission provides ``r format(mpg_fit$coeff[2], digits=3)`` additional miles per gallon compared to automatic transmission. This result is highly significant - 95% confidence interval is `[`r format(confint(mpg_fit)[2, ], digits=3)`]`.
 
 Let's inspect the residuals for any bias 
-```{r q2_inspect_model_1, cache=TRUE}
+```{r q2_inspect_model_1, cache=TRUE, echo=FALSE, fig.height=5}
 build_fit_df <- function(fit) {
     df <- data.frame(mpg.predict=predict(fit, cars_df), 
                      mpg.residuals=fit$residuals,
-                     mpg=cars_df$mpg, am_fctr=cars_df$am_fctr, id=cars_df$id)
+                     mpg=cars_df$mpg, am_fctr=cars_df$am_fctr, 
+                     id=cars_df$id, id_outlier=cars_df$id_outlier)
     df <- cbind(df, cars_df[, feats_fctr[feats_fctr != "am_fctr"]])
     df <- cbind(df, cars_df[, feats_num[feats_num != "mpg"]])
 }
 mpg_fit_df <- build_fit_df(mpg_fit)
 
-print(myplot_violin(mpg_fit_df, "mpg.residuals", "mpg.predict"))
-#print(myplot_violin(mpg_fit_df, "mpg.residuals", "am_fctr"))
-#print(myplot_scatter(mpg_fit_df, "mpg.predict", "mpg.residuals", 
-#                     colorcol_name="am_fctr"))
+print(myplot_violin(mpg_fit_df, "mpg.residuals", "mpg.predict") + 
+      geom_text(aes(label=id_outlier), size=3)        
+      )
 ```  
+
 The residuals of the regression appear NOT biased with mean close to `0`. However, there is some residual heteroskedacity (median residuals for manual transmission is -2). Let's examine if the residuals are impacted by features not in this model. For that, let's first inspect the correlations between mpg & each of the features and build labels that are used later in the residual plots
 
-```{r q2_compute_cor, cache=TRUE}
+```{r q2_compute_cor, cache=TRUE, echo=FALSE}
 mpg_cor_df <- data.frame(mpg.cor=cor(cars_df[, c(gsub("_fctr", "", feats_fctr), 
                                                  feats_num)], cars_df[, "mpg"]))
 mpg_cor_df$mpg.cor.abs <- abs(mpg_cor_df$mpg.cor)
@@ -139,12 +159,12 @@ mpg_cor_df <- mutate(mpg_cor_df,
 myprint_df(mpg_cor_df)
 ```  
 
-```{r q2_inspect_model_1_residuals, cache=TRUE}
+```{r q2_inspect_model_1_residuals, cache=TRUE, echo=FALSE, fig.height=4}
 
 build_fit_plot_df <- function(fit_df) {
-    fit_plot_df <- melt(fit_df[, c("id", "mpg", "mpg.predict", "mpg.residuals", 
+    fit_plot_df <- melt(fit_df[, c("id", "id_outlier", "mpg", "mpg.predict", "mpg.residuals", 
                                            feats_fctr, feats_num)], 
-                            id.vars=c("id", "mpg", "mpg.predict", "mpg.residuals", 
+                            id.vars=c("id", "id_outlier", "mpg", "mpg.predict", "mpg.residuals", 
                                       "am_fctr"))
     fit_plot_df <- orderBy(~ id + variable, fit_plot_df)
     #tail(fit_df)
@@ -156,43 +176,45 @@ build_fit_plot_df <- function(fit_df) {
     return(fit_plot_df)
 }
 mpg_fit_plot_df <- build_fit_plot_df(mpg_fit_df)
-#all.equal(mpg_fit_plot_old_df, mpg_fit_plot_df)
 
 print(myplot_scatter(mpg_fit_plot_df, "mpg.predict", "mpg.residuals", 
                      colorcol_name="am_fctr", group=1) + 
-          facet_wrap(~ label, scales="free_x"))
+      facet_wrap(~ label) + 
+      geom_text(aes(label=id_outlier), size=3)  
+     )
 ```
 
 None of the other variables seem to explain any more mpg variation at first glance. Let's check the actual distribution of mpg vs. am_fctr.
 
-```{r q2_inspect_data_1, cache=TRUE}
-cars_plot_df <- melt(cars_df[, c("id", "mpg", feats_fctr, feats_num)], 
-                     id.vars=c("id", "mpg", "am_fctr"))
+```{r q2_inspect_data_1, cache=TRUE, echo=FALSE}
+cars_plot_df <- melt(cars_df[, c("id", "id_outlier", "mpg", feats_fctr, feats_num)], 
+                     id.vars=c("id", "id_outlier","mpg", "am_fctr"))
 cars_plot_df <- orderBy(~ id + variable, cars_plot_df)
 #tail(cars_df)
 #tail(cars_plot_df)
 #intersect(names(cars_plot_df), names(mpg_cor_df[, c("variable", "label", "mpg.cor.abs")]))
-cars_plot_df <- merge(cars_plot_df, mpg_cor_df[, c("variable", "label", "mpg.cor.abs")],
-                             all.x=TRUE)
-#print(nrow(cars_plot_df) == nrow(tmp_cars_plot_df))
+cars_plot_df <- merge(cars_plot_df, mpg_cor_df[, c("variable", "label", 
+                                                   "mpg.cor.abs")],
+                      all.x=TRUE)
 cars_plot_df <- orderBy(~ id + variable, cars_plot_df)
-#print(mpg_cor_df$label)
 cars_plot_df$label_fctr <- factor(cars_plot_df$label, levels=mpg_cor_df$label)
 print(myplot_scatter(cars_plot_df, "value", "mpg", colorcol_name="am_fctr", group=1) + 
-          facet_wrap(~ label_fctr, scales="free_x"))
+      facet_wrap(~ label_fctr, scales="free_x") + 
+      geom_text(aes(label=id_outlier), size=3)  
+     )
 ```
 
-Clearly, other features can provide additional insights into the relationship between mpg & transmission. Let's add features to the simple model (mpg_fit) in order of the features correlated with mpg (highest goes first).
+Clearly, other features can provide additional insights into the relationship between mpg & transmission. Let's add features to the simple model (mpg_fit) in order of the features correlated with mpg (highest tested first).
 
-```{r q2_test_model_wt, cache=TRUE}
+```{r q2_test_model_wt, cache=TRUE, echo=FALSE}
 mpg_wt_fit <- update(mpg_fit, mpg ~ am_fctr + wt, data=cars_df)
 mpg_wt_i_fit <- update(mpg_fit, mpg ~ am_fctr * wt, data=cars_df)
 print(anova(mpg_fit, mpg_wt_fit, mpg_wt_i_fit))
 print(summary(mpg_wt_i_fit))
 ```
-The interaction model of am_fctr & wt is statistically significant (`99%` confidence) and all the model coefficients are significant (`99%` confidence). None of the other models tested piecewise for each additional feature to this model in a similar fashion crossed these thresholds. Adj-Rsq is ``r format(summary(mpg_wt_i_fit)$adj.r.squared, nsmall=3, digits=3)`` 
+The interaction model of am_fctr & wt is statistically significant (`99%` confidence) and all the model coefficients are significant (`99%` confidence). None of the other models tested piecewise for each additional feature to this model in a similar fashion crossed these thresholds. Adj-Rsq is ``r format(summary(mpg_wt_i_fit)$adj.r.squared, nsmall=3, digits=3)``. Let's inspect the residuals for this model. 
 
-```{r q2_inspect_model_wt_i_1}
+```{r q2_inspect_model_wt_i_1, echo=FALSE, fig.height=4}
 mpg_wt_i_fit_df <- build_fit_df(mpg_wt_i_fit)
 
 extract_fit_formula <- function(fit) {
@@ -212,24 +234,28 @@ print(ggplot(violin_plot_df, aes(x=am_fctr, y=mpg.residuals)) +
       facet_wrap(~ fit_str) + 
       stat_summary(fun.y=mean, pch=22, geom='point', color='red') + 
       geom_smooth(aes(group=1), method="lm") + 
-      theme(legend.position="none"))
+      theme(legend.position="none") + 
+      geom_text(aes(label=id_outlier), size=3)  
+     )
 ```
 
 The mean of residuals is `0` for both transmission types and the heteroskedacity of the residuals is reduced significantly. 
 
-```{r q2_inspect_model_wt_i_2}
+```{r q2_inspect_model_wt_i_2, echo=FALSE, fig.height=4}
 # names(violin_plot_df)
 print(ggplot(violin_plot_df, aes(x=mpg.predict, y=mpg.residuals)) + 
       geom_violin(aes(fill=fit_str), color="blue") + 
       facet_wrap(~ fit_str) + 
       stat_summary(fun.y=mean, pch=22, geom='point', color='red') + 
       geom_smooth(aes(group=1), method="rlm") + 
-      theme(legend.position="none"))
+      theme(legend.position="none") + 
+      geom_text(aes(label=id_outlier), size=3)  
+      )
 ```
 
 There seems to be negatively correlated residuals in the interactive wt model, although that doesn't show up when method="lm" in geom_smooth() 
 
-```{r q2_inspect_model_wt_i_3}
+```{r q2_inspect_model_wt_i_3, echo=FALSE}
 # par(mfcol=c(1, 2))
 # plot(mpg_fit, which=1)
 # plot(mpg_wt_i_fit, which=1)
@@ -260,31 +286,43 @@ print(format(dfbeta(mpg_wt_i_fit)[max_hatval_car, ], digits=2, scientific=FALSE)
 #plot(mpg_wt_i_fit, which=6)
 ```
 
-The Maserati Bora is the most influential point and without it manual transmission would be ``r format(abs(dfbeta(mpg_wt_i_fit)[max_hatval_car, ]["am_fctrmanual"]), digits=2)`` mpg lower.
+The Maserati Bora is the most influential point and without it manual transmission would be ``r format((dfbeta(mpg_wt_i_fit)[max_hatval_car, ]["am_fctrmanual"]), digits=2)`` mpg (lower) - [am_fctrmanual] and ``r format((dfbeta(mpg_wt_i_fit)[max_hatval_car, ]["am_fctrmanual:wt"] * 3.57), digits=2)`` mpg (higher) [am_fctrmanual:wt].
 
-```{r q2_print_model_wt_i}
+```{r q2_print_model_wt_i, echo=FALSE}
 build_fit_formula <- function(fit) {
     str <- strsplit(toString(summary(fit)$call$formula), ',')
     tmp_str <- str[[1]]
-    regressors <- strsplit(tmp_str[3], split=' ')[[1]]
-    regressors <- regressors[regressors != '+']
+#     regressors <- strsplit(tmp_str[3], split=' ')[[1]]
+#     regressors <- regressors[regressors != '+']
     coeff <- summary(fit)$coefficients
     coeff_str <- ""
     for (row in seq(1:nrow(coeff)))
     #for (row in seq(1:2))        
         coeff_str <- paste0(coeff_str, ifelse((row == 1), "", " + "), 
                             format(coeff[row, 1], digits=4), 
-                            ifelse((row == 1), "", " * "), regressors[row])                            
-    print(coeff_str)
+                            ifelse((row == 1), "", " * "), 
+                            ifelse((row == 1), "", rownames(coeff)[row]))                            
+    #print(coeff_str)
     str <- paste0(tmp_str[2], " ", tmp_str[1], " ", coeff_str)
     return(str)
 }
 display_fit_frmla <- build_fit_formula(mpg_wt_i_fit)
-print(display_fit_frmla)
+print(sprintf("Proposed model: %s", display_fit_frmla))
 print(confint(mpg_wt_i_fit))
 ```
 
-The proposed model is ``r display_fit_frmla`` where `am_fctr` is 0 for manual transmission [1 for automatic], `wt` is weight (lb/1000) and `am_fctr:wt` is 0 for manual transmission [wt for automatic].
+The proposed model is ``r display_fit_frmla`` where `am_fctrmanual` is 1 for manual transmission [0 for automatic], `wt` is weight (lb/1000) and `am_fctrmanual:wt` is wt for manual transmission [0 for automatic]. None of the coefficients change sign in the 95% confidence interval.
+
+```{r q2_plot_model_wt_i, echo=FALSE, results='hide'}
+#model_coeffs <- summary(mpg_wt_i_fit)$coefficients[, 1]
+# print(myplot_scatter(cars_df, "wt", "mpg", colorcol_name="am_fctr"))
+# print(myplot_scatter(cars_df, "wt", "mpg", colorcol_name="am_fctr") + 
+#       geom_abline(intercept=(model_coeffs[1]), 
+#                   slope=(model_coeffs[3]), color="red") +
+#       geom_abline(intercept=(model_coeffs[1] + model_coeffs[2]), 
+#                   slope=(model_coeffs[3] + model_coeffs[4]), color="blue")  
+#      )
+```
 
 ```{r print_sessionInfo, echo=FALSE}
 sessionInfo()
